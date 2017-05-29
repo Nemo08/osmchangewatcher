@@ -19,10 +19,16 @@ import (
 )
 
 const (
-	getdataworkers         = 5
-	memMonitorTimeout      = 30
-	configpath             = "./config.json"
-	messageString          = "Ch: <b>%v</b> <a href=\"http://overpass-api.de/achavi/?changeset=%[1]v\">[Achavi]</a><a href=\"http://www.openstreetmap.org/changeset/%[1]v\">[OSM]</a>\nAr: %s\nIn: %s\nEd: <b>%s</b> <a href=\"http://hdyc.neis-one.org/?%s\">[Info]</a>\nOp: %s\nCl: %s\nTags:\n<code>%s</code>"
+	getdataworkers    = 5
+	memMonitorTimeout = 30
+	configpath        = "./config.json"
+	messageString     = `
+	Ch: <b>%v</b> <a href=\"http://overpass-api.de/achavi/?changeset=%[1]v\">[Achavi]</a><a href=\"http://www.openstreetmap.org/changeset/%[1]v\">[OSM]</a><a href=\"https://osmcha.mapbox.com/%[1]v\">[OSMCHA]</a>\n
+	Ar: %s\nIn: %s\n
+	Ed: <b>%s</b> <a href=\"http://hdyc.neis-one.org/?%s\">[Info]</a>\n
+	Op: %s\n
+	Cl: %s\nTags:\n<code>%s</code>
+	`
 	statsString            = "N cr: %v mod: %v del: %v\nW cr: %v mod: %v del: %v\nR cr: %v mod: %v del: %v"
 	telegramkey            = "вставьте сюда ваш ключ бота"
 	OSMAPIEndpoint         = "http://api.openstreetmap.org/api/0.6/changesets?%s"
