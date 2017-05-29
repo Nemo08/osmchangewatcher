@@ -15,25 +15,19 @@ import (
 
 	oapi "github.com/Nemo08/goosmapi"
 	_ "github.com/davecgh/go-spew/spew"
-	"github.com/go-telegram-bot-api/telegram-bot-api"
+	"gopkg.in/telegram-bot-api.v4"
 )
 
 const (
-	getdataworkers    = 5
-	memMonitorTimeout = 30
-	configpath        = "./config.json"
-	messageString     = `
-	Ch: <b>%v</b> <a href=\"http://overpass-api.de/achavi/?changeset=%[1]v\">[Achavi]</a><a href=\"http://www.openstreetmap.org/changeset/%[1]v\">[OSM]</a><a href=\"https://osmcha.mapbox.com/%[1]v\">[OSMCHA]</a>\n
-	Ar: %s\nIn: %s\n
-	Ed: <b>%s</b> <a href=\"http://hdyc.neis-one.org/?%s\">[Info]</a>\n
-	Op: %s\n
-	Cl: %s\nTags:\n<code>%s</code>
-	`
+	getdataworkers         = 5
+	memMonitorTimeout      = 60
+	configpath             = "./config.json"
+	messageString          = "Ch: <b>%v</b> <a href=\"http://overpass-api.de/achavi/?changeset=%[1]v\">[Achavi]</a><a href=\"http://www.openstreetmap.org/changeset/%[1]v\">[OSM]</a><a href=\"https://osmcha.mapbox.com/%[1]v\">[OSMCHA]</a>\n	Ar: %s\nIn: %s\n	Ed: <b>%s</b> <a href=\"http://hdyc.neis-one.org/?%s\">[Info]</a>\n	Op: %s\n	Cl: %s\nTags:\n<code>%s</code>"
 	statsString            = "N cr: %v mod: %v del: %v\nW cr: %v mod: %v del: %v\nR cr: %v mod: %v del: %v"
 	telegramkey            = "вставьте сюда ваш ключ бота"
 	OSMAPIEndpoint         = "http://api.openstreetmap.org/api/0.6/changesets?%s"
 	ChangesetRequestString = "bbox=%f,%f,%f,%f&time=%s"
-	ocw_version            = "0.1"
+	ocw_version            = "0.2"
 )
 
 type OCW struct {
@@ -119,7 +113,7 @@ func (o *OCW) getChangesetList(client *http.Client, areaid int, ar Area) {
 		for k, _ := range changesets {
 			chId = changesets[len(changesets)-k-1].ChangesetId
 			if chId > ar.LatestChangeset {
-				log.Println("Пишем изменения по '", ar.Comment, "' в канал")
+				log.Println("Пишем изменения по '", ar.Comment, "' в канал ", ar.TelegrammChannel)
 
 				o.toSendOSMDataChannel <- OsmResponse{
 					Channel: ar.TelegrammChannel,
@@ -136,10 +130,10 @@ func (o *OCW) getChangesetList(client *http.Client, areaid int, ar Area) {
 		if maxchangeset > ar.LatestChangeset {
 			o.toWriteConfigPart <- WriteToConfig{id: areaid, LatestChangeset: maxchangeset}
 		} else {
-			log.Printf("Изменений по '%s' за %v мин нет", ar.Comment, ar.UpdateTime)
+			log.Printf("Изменений по '%s' за %v мин нет, последний чейнджсет %d", ar.Comment, ar.UpdateTime, ar.LatestChangeset)
 		}
 	} else {
-		log.Printf("Изменений по '%s' за %v мин нет", ar.Comment, ar.UpdateTime)
+		log.Printf("Изменений по '%s' за %v мин нет, последний чейнджсет %d", ar.Comment, ar.UpdateTime, ar.LatestChangeset)
 	}
 }
 
@@ -252,9 +246,9 @@ func (o *OCW) writeConfig() {
 
 	err = ioutil.WriteFile(configpath, data, 0644)
 	if err != nil {
-		log.Fatalf("Write config file error: %v\n", err)
+		log.Fatalf("Ошибка записи файла конфигурации: %v\n", err)
 	}
-	log.Println("Configuration file writed to disk")
+	log.Println("Файл конфигурации обновлен на диске")
 }
 
 func (o *OCW) telegramMessageSender() {
@@ -277,7 +271,7 @@ func (o *OCW) sendToTelegram(cgs OsmResponse) {
 	_ = chst
 	bot, err = tgbotapi.NewBotAPI(telegramkey)
 	if err != nil {
-		log.Panic("Wrong key:", telegramkey, err)
+		log.Panic("Неправильный ключ:", telegramkey, err)
 	}
 	log.Printf("Авторизовались на аккаунте %s", bot.Self.UserName)
 
@@ -322,13 +316,16 @@ func (o *OCW) sendToTelegram(cgs OsmResponse) {
 				len(chst.DeletedRelations)))
 	msg.ParseMode = "HTML"
 	msg.DisableWebPagePreview = true
-	bot.Send(msg)
+	_, err = bot.Send(msg)
+	if err != nil {
+		log.Printf("Сообщение не прошло", err.Error())
+	}
 }
 
 func (o *OCW) telegrammAdminPanel() {
 	bot, err := tgbotapi.NewBotAPI(telegramkey)
 	if err != nil {
-		log.Panic("Wrong key:", telegramkey, err)
+		log.Panic("Неправильный ключ:", telegramkey, err)
 	}
 	log.Printf("Авторизовались на аккаунте %s", bot.Self.UserName)
 
@@ -375,6 +372,7 @@ func (o *OCW) telegrammAdminPanel() {
 				}
 				break
 			}
+			log.Printf("Пришла команда %s", text)
 			break
 		}
 	}
