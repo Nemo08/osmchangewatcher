@@ -1,0 +1,16 @@
+{
+	"areas": [
+		{
+			"channel": "@osmchanges_ru_tam",
+			"comment": "Тамбовская область",
+			"boundsbox": {
+				"minlat": 51.646187,
+				"minlon": 39.762885,
+				"maxlat": 52.869573,
+				"maxlon": 42.970892
+			},
+			"updatetime": 2,
+			"latestchangeset": 42099104
+		}
+	]
+}
