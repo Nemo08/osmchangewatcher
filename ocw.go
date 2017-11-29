@@ -19,16 +19,15 @@ import (
 )
 
 const (
-	getdataworkers    = 5
-	memMonitorTimeout = 60
-	configpath        = "./config.json"
-	messageString     = `<b>#%v</b>, редактор: <a href="http://hdyc.neis-one.org/?%s">%s</a>
-	%s
-	<code>%s</code>`
+	getdataworkers         = 5
+	memMonitorTimeout      = 60
+	configpath             = "./config.json"
+	messageString          = "Ch: <b>%v</b> <a href=\"http://overpass-api.de/achavi/?changeset=%[1]v\">[Achavi]</a><a href=\"http://www.openstreetmap.org/changeset/%[1]v\">[OSM]</a><a href=\"https://osmcha.mapbox.com/%[1]v\">[OSMCHA]</a>\n	Ar: %s\nIn: %s\n	Ed: <b>%s</b> <a href=\"http://hdyc.neis-one.org/?%s\">[Info]</a>\n	Op: %s\n	Cl: %s\nTags:\n<code>%s</code>"
+	statsString            = "N cr: %v mod: %v del: %v\nW cr: %v mod: %v del: %v\nR cr: %v mod: %v del: %v"
 	telegramkey            = "вставьте сюда ваш ключ бота"
 	OSMAPIEndpoint         = "http://api.openstreetmap.org/api/0.6/changesets?%s"
 	ChangesetRequestString = "bbox=%f,%f,%f,%f&time=%s"
-	ocw_version            = "0.3"
+	ocw_version            = "0.2"
 )
 
 type OCW struct {
@@ -199,7 +198,8 @@ func (o *OCW) getDWbody(a Area, client *http.Client) []oapi.ChangesetInfo {
 				a.Bbox.Maxlat,
 				time.Now().Add(
 					time.Duration(a.UpdateTime)*time.Minute*(-1)).
-					In(time.FixedZone("0", 0)).Format(time.RFC3339))))
+					In(
+						time.FixedZone("0", 0)).Format(time.RFC3339))))
 
 	if err == nil {
 		if xml.Unmarshal(xmlContent, &osmresp) != nil {
@@ -281,73 +281,41 @@ func (o *OCW) sendToTelegram(cgs OsmResponse) {
 		tags = tags + v.Key + " = " + v.Value + "\n"
 	}
 
-	//формируем строку изменений
-	var ChangesString = ""
-	//точка
-	if (len(chst.CreatedNodes) != 0) || (len(chst.ModifiedNodes) != 0) || (len(chst.DeletedNodes) != 0) {
-		ChangesString = "Тчк"
-		if len(chst.CreatedNodes) != 0 {
-			ChangesString = ChangesString + fmt.Sprintf(" созд: %v", len(chst.CreatedNodes))
-		}
-		if len(chst.ModifiedNodes) != 0 {
-			ChangesString = ChangesString + fmt.Sprintf(" изм: %v", len(chst.ModifiedNodes))
-		}
-		if len(chst.DeletedNodes) != 0 {
-			ChangesString = ChangesString + fmt.Sprintf(" удал: %v", len(chst.DeletedNodes))
-		}
-		ChangesString = ChangesString + " "
-	}
-	if (len(chst.CreatedWays) != 0) || (len(chst.ModifiedWays) != 0) || (len(chst.DeletedWays) != 0) {
-		ChangesString = ChangesString + "Лин"
-		if len(chst.CreatedWays) != 0 {
-			ChangesString = ChangesString + fmt.Sprintf(" созд: %v", len(chst.CreatedWays))
-		}
-		if len(chst.ModifiedWays) != 0 {
-			ChangesString = ChangesString + fmt.Sprintf(" изм: %v", len(chst.ModifiedWays))
-		}
-		if len(chst.DeletedWays) != 0 {
-			ChangesString = ChangesString + fmt.Sprintf(" удал: %v", len(chst.DeletedWays))
-		}
-		ChangesString = ChangesString + " "
-	}
-	if (len(chst.CreatedRelations) != 0) || (len(chst.ModifiedRelations) != 0) || (len(chst.DeletedRelations) != 0) {
-		ChangesString = ChangesString + "Отн"
-		if len(chst.CreatedRelations) != 0 {
-			ChangesString = ChangesString + fmt.Sprintf(" созд: %v", len(chst.CreatedRelations))
-		}
-		if len(chst.ModifiedRelations) != 0 {
-			ChangesString = ChangesString + fmt.Sprintf(" изм: %v", len(chst.ModifiedRelations))
-		}
-		if len(chst.DeletedRelations) != 0 {
-			ChangesString = ChangesString + fmt.Sprintf(" удал: %v", len(chst.DeletedRelations))
-		}
-		ChangesString = ChangesString + " "
-	}
-
-	//формируем сообщение в телеге
 	msg := tgbotapi.NewMessageToChannel(
 		cgs.Channel,
 		fmt.Sprintf(
 			messageString,
 			cgs.Resp.ChangesetId,
-			url.QueryEscape(cgs.Resp.User),
-			cgs.Resp.User,
-			fmt.Sprintf(ChangesString),
-			tags)+
+			cgs.Comment,
 			intersectionCheck(
 				cgs.Bbox,
 				cgs.Resp.Minlat,
 				cgs.Resp.Minlon,
 				cgs.Resp.Maxlat,
-				cgs.Resp.Maxlon))
+				cgs.Resp.Maxlon),
+			cgs.Resp.User,
+			url.QueryEscape(cgs.Resp.User),
+			cgs.Resp.CreatedAt.Format(time.RFC822),
+			func() string {
+				if cgs.Resp.ClosedAt == nil {
+					return "Not closed yet"
+				}
+				return cgs.Resp.ClosedAt.Format(time.RFC822)
+			}(),
+			tags)+
+			fmt.Sprintf(
+				statsString,
+				len(chst.CreatedNodes),
+				len(chst.ModifiedNodes),
+				len(chst.DeletedNodes),
+				len(chst.CreatedWays),
+				len(chst.ModifiedWays),
+				len(chst.DeletedWays),
+				len(chst.CreatedRelations),
+				len(chst.ModifiedRelations),
+				len(chst.DeletedRelations)))
 	msg.ParseMode = "HTML"
 	msg.DisableWebPagePreview = true
-	msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
-		[]tgbotapi.InlineKeyboardButton{
-			tgbotapi.NewInlineKeyboardButtonURL("\xF0\x9F\x91\x80 OSM", fmt.Sprintf("http://www.openstreetmap.org/changeset/%[1]v", cgs.Resp.ChangesetId)),
-			tgbotapi.NewInlineKeyboardButtonURL("\xF0\x9F\x91\x80 Achavi", fmt.Sprintf("http://overpass-api.de/achavi/?changeset=%[1]v", cgs.Resp.ChangesetId)),
-			tgbotapi.NewInlineKeyboardButtonURL("\xF0\x9F\x91\x80 OSMCHA", fmt.Sprintf("https://osmcha.mapbox.com/%[1]v", cgs.Resp.ChangesetId)),
-			tgbotapi.NewInlineKeyboardButtonURL("\xE2\x9C\x8F JOSM", fmt.Sprintf("http://127.0.0.1:8111/import?url=http://www.openstreetmap.org/changeset/%[1]v", cgs.Resp.ChangesetId))})
 	_, err = bot.Send(msg)
 	if err != nil {
 		log.Printf("Сообщение не прошло", err.Error())
@@ -421,12 +389,12 @@ func ina(a1, a2, c float64) bool {
 
 func intersectionCheck(bbmain oapi.BoundsBox, Minlat, Minlon, Maxlat, Maxlon float64) string {
 	if occurenceCheck(bbmain, Minlat, Minlon) && occurenceCheck(bbmain, Maxlat, Maxlon) {
-		return ""
+		return "Чейнджсет целиком в области отслеживания"
 	}
 	if occurenceCheck(bbmain, Minlat, Minlon) || occurenceCheck(bbmain, Maxlat, Maxlon) {
-		return "\n<i>Частично в области отслеживания</i>"
+		return "Чейнджсет частично в области отслеживания"
 	}
-	return "\n<i>Больше области отслеживания</i>"
+	return "Чейнджсет больше области отслеживания"
 }
 
 func occurenceCheck(bb oapi.BoundsBox, lat, lon float64) bool {
