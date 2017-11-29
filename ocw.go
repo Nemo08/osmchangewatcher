@@ -25,7 +25,7 @@ const (
 	messageString     = `<b>#%v</b>, редактор: <a href="http://hdyc.neis-one.org/?%s">%s</a>
 	%s
 	<code>%s</code>`
-	telegramkey            = "286770490:AAHRcwOrEB-vgXeLTgJCSQ6rU6FYH5vK4ic"
+	telegramkey            = "вставьте сюда ваш ключ бота"
 	OSMAPIEndpoint         = "http://api.openstreetmap.org/api/0.6/changesets?%s"
 	ChangesetRequestString = "bbox=%f,%f,%f,%f&time=%s"
 	ocw_version            = "0.3"
